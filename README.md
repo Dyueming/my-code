@@ -2,16 +2,33 @@
 
 存放个人项目与代码实践的仓库。
 
+## 项目列表
+
+| 目录 | 内容 | 技术栈 |
+| --- | --- | --- |
+| [`RL/`](RL/) | 强化学习算法实践：多臂老虎机、动态规划、时序差分、策略梯度、DQN / DDPG / PPO / TRPO / SAC 等 | Python · PyTorch · Gym |
+
 ## 目录结构
 
 ```
 .
 ├── README.md
 ├── .gitignore
-└── .gitattributes
+├── .gitattributes
+└── RL/                  # 强化学习算法实践
+    ├── README.md        # 算法索引与运行说明
+    ├── requirements.txt
+    ├── MAB.py
+    ├── DDPG.py
+    ├── 动态规划/
+    ├── 时序差分/
+    ├── 策略梯度/
+    ├── AC/
+    ├── DQN/
+    └── 基准算法/
 ```
 
-后续新增项目时，建议按子目录划分：
+新增项目时按子目录划分，每个目录自带 `README.md`：
 
 ```
 projects/
