@@ -1,0 +1,75 @@
+# ---- 操作系统 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 编辑器 / IDE ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- 日志与临时文件 ----
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.bak
+
+# ---- 环境变量与密钥（务必不要提交）----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.*
+
+# ---- Node.js ----
+node_modules/
+dist/
+build/
+coverage/
+.npm/
+.yarn/
+pnpm-lock.yaml.bak
+npm-debug.log*
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# ---- Java / Maven / Gradle ----
+target/
+*.class
+.gradle/
+build/
+out/
+
+# ---- Go ----
+*.exe
+*.test
+*.out
+vendor/
+
+# ---- C / C++ ----
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.a
+cmake-build-*/
+
+# ---- 压缩包与二进制产物 ----
+*.zip
+*.tar.gz
+*.7z
