@@ -1,0 +1,7 @@
+# Note: this environment also needs RELAP5/MOD4.0 (not a Python package)
+# and a Windows graphical session.
+torch>=2.0
+numpy>=1.21
+gymnasium>=0.28
+optuna>=3.0
+pygetwindow>=0.0.9

@@ -28,12 +28,14 @@ A collection of personal projects and code practice.
 │   ├── DQN/                     # DQN, Double DQN
 │   └── baselines/               # 12 reference implementations
 └── Meta-RL/                     # Nuclear load-following RL control
+    ├── requirements.txt
     ├── Env.py                   # Environment wrapper around RELAP5
     ├── DDPG.py                  # Agent and replay buffer
     ├── Train-776.py             # 80% power condition
     ├── Train-873.py             # 90% power condition
     ├── Meta_Optimize_776.py     # Optuna reward-weight search (80%)
-    └── Meta_Optimize_873.py     # Optuna reward-weight search (90%)
+    ├── Meta_Optimize_873.py     # Optuna reward-weight search (90%)
+    └── models/                  # Trained checkpoints per operating point
 ```
 
 New projects go in their own subdirectory, each with its own `README.md`.
