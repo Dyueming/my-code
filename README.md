@@ -1,73 +1,66 @@
-# 个人代码仓库
+# Personal Code Repository
 
-存放个人项目与代码实践的仓库。
+A collection of personal projects and code practice.
 
-## 项目列表
+## Projects
 
-| 目录 | 内容 | 技术栈 |
+| Directory | Contents | Stack |
 | --- | --- | --- |
-| [`RL/`](RL/) | 强化学习算法实践：多臂老虎机、动态规划、时序差分、策略梯度、DQN / DDPG / PPO / TRPO / SAC 等 | Python · PyTorch · Gym |
-| [`Meta-RL/`](Meta-RL/) | 核电机组负荷跟踪控制：DDPG 智能体 + Optuna 奖励权重元优化，耦合 RELAP5 热工水力仿真 | Python · PyTorch · Optuna · RELAP5 |
+| [`RL/`](RL/) | Reinforcement learning implementations: bandits, dynamic programming, temporal difference, policy gradient, DQN / DDPG / PPO / TRPO / SAC | Python · PyTorch · Gym |
+| [`Meta-RL/`](Meta-RL/) | Load-following control for a nuclear power unit: DDPG agent with Optuna reward-weight meta-optimisation, coupled to a RELAP5 thermal-hydraulic simulation | Python · PyTorch · Optuna · RELAP5 |
 
-## 目录结构
+## Layout
 
 ```
 .
 ├── README.md
 ├── .gitignore
 ├── .gitattributes
-├── RL/                  # 强化学习算法实践
-│   ├── README.md        # 算法索引与运行说明
+├── RL/                          # Reinforcement learning practice
+│   ├── README.md                # Algorithm index and run instructions
 │   ├── requirements.txt
-│   ├── MAB.py
+│   ├── MAB.py                   # Multi-armed bandit
 │   ├── DDPG.py
-│   ├── 动态规划/
-│   ├── 时序差分/
-│   ├── 策略梯度/
-│   ├── AC/
-│   ├── DQN/
-│   └── 基准算法/
-└── Meta-RL/             # 核电负荷跟踪强化学习控制
-    ├── Env.py           # 环境封装（对接 RELAP5）
-    ├── DDPG.py          # 智能体与经验回放
-    ├── Train-776.py     # 80% 功率工况训练
-    ├── Train-873.py     # 90% 功率工况训练
-    ├── Meta_Optimize_776.py  # Optuna 奖励权重搜索（80%）
-    └── Meta_Optimize_873.py  # Optuna 奖励权重搜索（90%）
+│   ├── dynamic_programming/     # Policy iteration, value iteration, cliff walking
+│   ├── temporal_difference/     # Sarsa, Q-learning, Dyna-Q
+│   ├── policy_gradient/         # REINFORCE
+│   ├── AC/                      # Actor-Critic
+│   ├── DQN/                     # DQN, Double DQN
+│   └── baselines/               # 12 reference implementations
+└── Meta-RL/                     # Nuclear load-following RL control
+    ├── Env.py                   # Environment wrapper around RELAP5
+    ├── DDPG.py                  # Agent and replay buffer
+    ├── Train-776.py             # 80% power condition
+    ├── Train-873.py             # 90% power condition
+    ├── Meta_Optimize_776.py     # Optuna reward-weight search (80%)
+    └── Meta_Optimize_873.py     # Optuna reward-weight search (90%)
 ```
 
-新增项目时按子目录划分，每个目录自带 `README.md`：
+New projects go in their own subdirectory, each with its own `README.md`.
 
-```
-projects/
-└── <项目名>/
-    ├── README.md
-    └── ...
-```
+## Usage
 
-## 使用方式
-
-克隆到本地：
+Clone the repository:
 
 ```bash
-git clone <仓库地址>
+git clone <repository-url>
 ```
 
-日常提交：
+Day-to-day commits:
 
 ```bash
 git add .
-git commit -m "feat: 说明这次改了什么"
+git commit -m "feat: describe the change"
 git push
 ```
 
-## 提交信息规范（约定式提交）
+## Commit Convention
 
-| 前缀 | 用途 |
+| Prefix | Purpose |
 | --- | --- |
-| `feat` | 新功能 |
-| `fix` | 修复问题 |
-| `docs` | 仅文档变更 |
-| `refactor` | 重构，不改变行为 |
-| `chore` | 构建、依赖、配置等杂项 |
-| `test` | 测试相关 |
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation only |
+| `refactor` | Refactoring without behaviour change |
+| `chore` | Build, dependencies, configuration |
+| `test` | Tests |

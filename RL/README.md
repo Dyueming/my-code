@@ -1,89 +1,89 @@
-# 强化学习算法实践
+# Reinforcement Learning Practice
 
-从表格型方法到深度强化学习的实现与练习，代码基于 PyTorch + Gym。
+Implementations and exercises spanning tabular methods through deep reinforcement learning, built with PyTorch and Gym.
 
-## 目录与算法索引
+## Algorithm Index
 
-### 多臂老虎机（探索与利用）
+### Multi-armed bandit (exploration vs. exploitation)
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `MAB.py` | 伯努利多臂老虎机，ε-greedy / 上置信界等探索策略 |
+| `MAB.py` | Bernoulli multi-armed bandit with epsilon-greedy and UCB-style exploration |
 
-### 动态规划（有模型）
+### Dynamic programming (model-based)
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `动态规划/PolicyIteration.py` | 策略迭代：策略评估 + 策略改进交替进行 |
-| `动态规划/ValueIteration.py` | 价值迭代：直接对最优价值函数做贝尔曼最优备份 |
-| `动态规划/Cliff_Walking.py` | 悬崖漫步环境下的 DP 求解 |
+| `dynamic_programming/PolicyIteration.py` | Policy iteration: alternating policy evaluation and improvement |
+| `dynamic_programming/ValueIteration.py` | Value iteration: Bellman optimality backups directly on the value function |
+| `dynamic_programming/Cliff_Walking.py` | Dynamic programming solution for the cliff walking environment |
 
-### 时序差分（无模型）
+### Temporal difference (model-free)
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `时序差分/Sarsa.py` | 同策略 TD 控制，按实际执行的下一动作更新 |
-| `时序差分/Q-leaning.py` | 异策略 TD 控制，按最大 Q 值更新（Q-learning） |
-| `时序差分/Dyna-Q.py` | 引入环境模型与规划步骤，提升样本效率 |
-| `时序差分/Cliff_Walking.py` | 悬崖漫步环境下的 TD 对比实验 |
+| `temporal_difference/Sarsa.py` | On-policy TD control, updates with the action actually taken |
+| `temporal_difference/q_learning.py` | Off-policy TD control, updates with the maximum Q value |
+| `temporal_difference/Dyna-Q.py` | Adds a learned model and planning steps to improve sample efficiency |
+| `temporal_difference/Cliff_Walking.py` | TD comparison on the cliff walking environment |
 
-### 策略梯度与 Actor-Critic
+### Policy gradient and actor-critic
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `策略梯度/PolicyGrad.py` | REINFORCE，蒙特卡洛回报估计梯度 |
-| `AC/Actor_Critic.py` | Actor-Critic，用价值函数做基线降低方差 |
-| `DDPG.py` | 深度确定性策略梯度，面向连续动作空间 |
+| `policy_gradient/PolicyGrad.py` | REINFORCE with Monte-Carlo return estimates |
+| `AC/Actor_Critic.py` | Actor-Critic using a value function as the baseline |
+| `DDPG.py` | Deep deterministic policy gradient for continuous action spaces |
 
-### 值函数近似
+### Value function approximation
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `DQN/DQN.py` | DQN：经验回放 + 目标网络 |
-| `DQN/Double DQN.py` | Double DQN：解耦动作选择与价值评估，缓解高估 |
-| `DQN/rl_utils.py` | 训练与绘图的公共工具函数 |
+| `DQN/DQN.py` | DQN with experience replay and a target network |
+| `DQN/double_dqn.py` | Double DQN: decouples action selection from evaluation to reduce overestimation |
+| `DQN/rl_utils.py` | Shared training and plotting helpers |
 
-### 基准算法集合
+### Baseline implementations
 
-`基准算法/` 下为各主流算法的独立实现，便于横向对比：
+`baselines/` holds standalone implementations for side-by-side comparison:
 
-| 算法 | 离散动作 | 连续动作 |
+| Algorithm | Discrete action | Continuous action |
 | --- | --- | --- |
-| Actor-Critic | `Actor-Critic算法.py` | — |
-| 策略梯度 | `策略梯度算法.py` | — |
-| DQN | `DQN算法.py` / `Double-DQN算法.py` / `Dueling-DQN.py` | — |
-| Dyna-Q | `Dyna-Q算法.py` | — |
-| DDPG | — | `DDPG算法.py` |
-| PPO | `PPO算法(离散动作).py` | `PPO算法(连续动作).py` |
-| TRPO | `TRPO(离散动作).py` | `TRPO(连续动作).py` |
-| SAC | `SAC(离散动作).py` | `SAC算法(连续动作).py` |
+| Actor-Critic | `actor_critic.py` | — |
+| Policy gradient | `policy_gradient.py` | — |
+| DQN | `dqn.py` / `double_dqn.py` / `dueling_dqn.py` | — |
+| Dyna-Q | `dyna_q.py` | — |
+| DDPG | — | `ddpg.py` |
+| PPO | `ppo_discrete.py` | `ppo_continuous.py` |
+| TRPO | `trpo_discrete.py` | `trpo_continuous.py` |
+| SAC | `sac_discrete.py` | `sac_continuous.py` |
 
-## 环境要求
+## Requirements
 
-Python 3.9+，依赖见 `requirements.txt`：
+Python 3.9+, dependencies listed in `requirements.txt`:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-| 库 | 用途 |
+| Package | Purpose |
 | --- | --- |
-| `torch` | 神经网络与自动求导 |
-| `numpy` | 数值计算 |
-| `matplotlib` | 训练曲线与策略可视化 |
-| `tqdm` | 训练进度显示 |
-| `gym` | 强化学习环境接口 |
+| `torch` | Neural networks and automatic differentiation |
+| `numpy` | Numerical computing |
+| `matplotlib` | Training curves and policy visualisation |
+| `tqdm` | Training progress bars |
+| `gym` | Reinforcement learning environment interface |
 
-## 运行方式
+## Running
 
-各脚本均可独立运行，训练结束后会弹出曲线图：
+Each script runs standalone and opens a training curve when finished:
 
 ```bash
-cd 基准算法
-python PPO算法\(连续动作\).py
+cd baselines
+python ppo_continuous.py
 ```
 
-## 备注
+## Notes
 
-- `1.py`、`2.py` 为早期随手写的小实验（绘图与列表操作），不属于算法实现。
-- 各脚本中的超参数（学习率、折扣因子、网络宽度等）集中在文件顶部的配置区，便于调整对比。
+- `1.py` and `2.py` are early scratch scripts (a plot and a list exercise), not algorithm implementations.
+- Hyperparameters (learning rate, discount factor, hidden width) sit in a configuration block at the top of each script for easy comparison.

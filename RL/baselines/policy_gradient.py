@@ -14,36 +14,36 @@ def moving_average(a, window_size):
 
 class CartPoleEnv:
     def __init__(self):
-        self.gravity = 9.8             # 重力加速度
-        self.masscart = 1.0            # 车辆质量
-        self.masspole = 0.1             # 杆子质量
+        self.gravity = 9.8  # gravitational acceleration
+        self.masscart = 1.0  # cart mass
+        self.masspole = 0.1  # pole mass
         self.total_mass = self.masscart + self.masspole
-        self.length = 0.5               # 杆子长度
+        self.length = 0.5  # pole length
         self.polemass_length = self.masspole * self.length
         self.action_force_mag = np.array([-10.0,
                                    -5.0,
                                    0.0,
                                    5.0,
-                                   10.0])# 力的大小（动作只有六个）
-        self.tau = 0.02                 # 时间步长
-        self.theta_threshold_radians = 12 * 2 * np.pi / 360  # 杆子的阈值
-        self.x_threshold = 2.4           # 车辆的阈值
+                                   10.0])  # force magnitude (six actions only)
+        self.tau = 0.02  # time step
+        self.theta_threshold_radians = 12 * 2 * np.pi / 360  # pole angle threshold
+        self.x_threshold = 2.4  # cart position threshold
         self.reset()
 
     def reset(self):
-        self.state = np.array([0.0,  # 位置
-                                0.0,  # 速度
-                                np.random.uniform(-0.05, 0.05),  # 杆子的角度
-                                0.0])  # 杆子的角速度
+        self.state = np.array([0.0,  # position
+                                0.0,  # velocity
+                                np.random.uniform(-0.05, 0.05),  # pole angle
+                                0.0])  # pole angular velocity
         return self.state
 
     def step(self, action):
         x, x_dot, theta, theta_dot = self.state
 
-        # 应用力
+        # Apply the force
         force=self.action_force_mag[action]
 
-        # 物理公式计算
+        # Physical equations
         costheta = np.cos(theta)
         sintheta = np.sin(theta)
 
@@ -56,23 +56,23 @@ class CartPoleEnv:
         theta += self.tau * theta_dot
         theta_dot += self.tau * theta_acc
 
-        # 更新状态
+        # Update the state
         self.state = np.array([x, x_dot, theta, theta_dot])
 
-        # 判断是否完成
+        # Check for termination
         done = theta < -self.theta_threshold_radians or theta > self.theta_threshold_radians or x < -self.x_threshold or x > self.x_threshold
 
-        # 奖励函数
-        reward = 1.0 if not done else 0.0  # 每一步奖励 +1，失败时奖励 0
+        # Reward function
+        reward = 1.0 if not done else 0.0  # +1 per step, 0 on failure
 
         return self.state, reward, done, {}
 
     def render(self):
-        # 可视化代码可选实现
+        # Visualisation is optional
         pass
 
     def close(self):
-        # 如果有资源需要清理，可以在这里添加
+        # Add resource cleanup here if needed
         pass
 
 
@@ -94,11 +94,11 @@ class REINFORCE:
         self.policy_net = PolicyNet(state_dim, hidden_dim,
                                     action_dim).to(device)
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(),
-                                          lr=learning_rate)  # 使用Adam优化器
-        self.gamma = gamma  # 折扣因子
+                                          lr=learning_rate)  # Adam optimiser
+        self.gamma = gamma  # discount factor
         self.device = device
 
-    def take_action(self, state):  # 根据动作概率分布随机采样
+    def take_action(self, state):  # sample from the action distribution
         state = torch.tensor([state], dtype=torch.float).to(self.device)
         probs = self.policy_net(state)
         action_dist = torch.distributions.Categorical(probs)
@@ -112,16 +112,16 @@ class REINFORCE:
 
         G = 0
         self.optimizer.zero_grad()
-        for i in reversed(range(len(reward_list))):  # 从最后一步算起
+        for i in reversed(range(len(reward_list))):  # start from the last step
             reward = reward_list[i]
             state = torch.tensor([state_list[i]],
                                  dtype=torch.float).to(self.device)
             action = torch.tensor([action_list[i]]).view(-1, 1).to(self.device)
             log_prob = torch.log(self.policy_net(state).gather(1, action))
             G = self.gamma * G + reward
-            loss = -log_prob * G  # 每一步的损失函数
-            loss.backward()  # 反向传播计算梯度
-        self.optimizer.step()  # 梯度下降
+            loss = -log_prob * G  # per-step loss
+            loss.backward()  # backpropagate
+        self.optimizer.step()  # gradient descent
 
 
 learning_rate = 1e-3
@@ -135,7 +135,7 @@ device = torch.device("cuda") if torch.cuda.is_available() else torch.device(
 env = CartPoleEnv()
 torch.manual_seed(0)
 state_dim = env.state.shape[0]
-action_dim = env.action_force_mag.shape[0] #动作维度
+action_dim = env.action_force_mag.shape[0]  # action dimension
 agent = REINFORCE(state_dim, hidden_dim, action_dim, learning_rate, gamma,device)
 
 return_list = []

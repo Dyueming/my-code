@@ -27,36 +27,36 @@ def moving_average(a, window_size):
 
 class CartPoleEnv:
     def __init__(self):
-        self.gravity = 9.8             # 重力加速度
-        self.masscart = 1.0            # 车辆质量
-        self.masspole = 0.1             # 杆子质量
+        self.gravity = 9.8  # gravitational acceleration
+        self.masscart = 1.0  # cart mass
+        self.masspole = 0.1  # pole mass
         self.total_mass = self.masscart + self.masspole
-        self.length = 0.5               # 杆子长度
+        self.length = 0.5  # pole length
         self.polemass_length = self.masspole * self.length
         self.action_force_mag = np.array([-10.0,
                                    -5.0,
                                    0.0,
                                    5.0,
-                                   10.0])# 力的大小（动作只有六个）
-        self.tau = 0.02                 # 时间步长
-        self.theta_threshold_radians = 12 * 2 * np.pi / 360  # 杆子的阈值
-        self.x_threshold = 2.4           # 车辆的阈值
+                                   10.0])  # force magnitude (six actions only)
+        self.tau = 0.02  # time step
+        self.theta_threshold_radians = 12 * 2 * np.pi / 360  # pole angle threshold
+        self.x_threshold = 2.4  # cart position threshold
         self.reset()
 
     def reset(self):
-        self.state = np.array([0.0,  # 位置
-                                0.0,  # 速度
-                                np.random.uniform(-0.05, 0.05),  # 杆子的角度
-                                0.0])  # 杆子的角速度
+        self.state = np.array([0.0,  # position
+                                0.0,  # velocity
+                                np.random.uniform(-0.05, 0.05),  # pole angle
+                                0.0])  # pole angular velocity
         return self.state
 
     def step(self, action):
         x, x_dot, theta, theta_dot = self.state
 
-        # 应用力
+        # Apply the force
         force=self.action_force_mag[action]
 
-        # 物理公式计算
+        # Physical equations
         costheta = np.cos(theta)
         sintheta = np.sin(theta)
 
@@ -69,23 +69,23 @@ class CartPoleEnv:
         theta += self.tau * theta_dot
         theta_dot += self.tau * theta_acc
 
-        # 更新状态
+        # Update the state
         self.state = np.array([x, x_dot, theta, theta_dot])
 
-        # 判断是否完成
+        # Check for termination
         done = theta < -self.theta_threshold_radians or theta > self.theta_threshold_radians or x < -self.x_threshold or x > self.x_threshold
 
-        # 奖励函数
-        reward = 1.0 if not done else 0.0  # 每一步奖励 +1，失败时奖励 0
+        # Reward function
+        reward = 1.0 if not done else 0.0  # +1 per step, 0 on failure
 
         return self.state, reward, done, {}
 
     def render(self):
-        # 可视化代码可选实现
+        # Visualisation is optional
         pass
 
     def close(self):
-        # 如果有资源需要清理，可以在这里添加
+        # Add resource cleanup here if needed
         pass
 
 
@@ -114,19 +114,19 @@ class ValueNet(torch.nn.Module):
 
 
 class TRPO:
-    """ TRPO算法 """
+    """ TRPO algorithm """
     def __init__(self, hidden_dim, state_dim, action_dim, lmbda,
                  kl_constraint, alpha, critic_lr, gamma, device):
 
-        # 策略网络参数不需要优化器更新
+        # Actor parameters are not updated by the optimiser
         self.actor = PolicyNet(state_dim, hidden_dim, action_dim).to(device)
         self.critic = ValueNet(state_dim, hidden_dim).to(device)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(),
                                                  lr=critic_lr)
         self.gamma = gamma
-        self.lmbda = lmbda  # GAE参数
-        self.kl_constraint = kl_constraint  # KL距离最大限制
-        self.alpha = alpha  # 线性搜索参数
+        self.lmbda = lmbda  # GAE parameter
+        self.kl_constraint = kl_constraint  # max KL divergence
+        self.alpha = alpha  # line search parameter
         self.device = device
 
     def take_action(self, state):
@@ -137,28 +137,28 @@ class TRPO:
         return action.item()
 
     def hessian_matrix_vector_product(self, states, old_action_dists, vector):
-        # 计算黑塞矩阵和一个向量的乘积
+        # Compute the Hessian-vector product
         new_action_dists = torch.distributions.Categorical(self.actor(states))
         kl = torch.mean(
             torch.distributions.kl.kl_divergence(old_action_dists,
-                                                 new_action_dists))  # 计算平均KL距离
+                                                 new_action_dists))  # mean KL divergence
         kl_grad = torch.autograd.grad(kl,
                                       self.actor.parameters(),
                                       create_graph=True)
         kl_grad_vector = torch.cat([grad.view(-1) for grad in kl_grad])
-        # KL距离的梯度先和向量进行点积运算
+        # Dot the KL gradient with the vector first
         kl_grad_vector_product = torch.dot(kl_grad_vector, vector)
         grad2 = torch.autograd.grad(kl_grad_vector_product,
                                     self.actor.parameters())
         grad2_vector = torch.cat([grad.view(-1) for grad in grad2])
         return grad2_vector
 
-    def conjugate_gradient(self, grad, states, old_action_dists):  # 共轭梯度法求解方程
+    def conjugate_gradient(self, grad, states, old_action_dists):  # solve with conjugate gradients
         x = torch.zeros_like(grad)
         r = grad.clone()
         p = grad.clone()
         rdotr = torch.dot(r, r)
-        for i in range(10):  # 共轭梯度主循环
+        for i in range(10):  # conjugate gradient loop
             Hp = self.hessian_matrix_vector_product(states, old_action_dists,
                                                     p)
             alpha = rdotr / torch.dot(p, Hp)
@@ -173,18 +173,18 @@ class TRPO:
         return x
 
     def compute_surrogate_obj(self, states, actions, advantage, old_log_probs,
-                              actor):  # 计算策略目标
+                              actor):  # compute the policy objective
         log_probs = torch.log(actor(states).gather(1, actions))
         ratio = torch.exp(log_probs - old_log_probs)
         return torch.mean(ratio * advantage)
 
     def line_search(self, states, actions, advantage, old_log_probs,
-                    old_action_dists, max_vec):  # 线性搜索
+                    old_action_dists, max_vec):  # line search
         old_para = torch.nn.utils.convert_parameters.parameters_to_vector(
             self.actor.parameters())
         old_obj = self.compute_surrogate_obj(states, actions, advantage,
                                              old_log_probs, self.actor)
-        for i in range(15):  # 线性搜索主循环
+        for i in range(15):  # line search loop
             coef = self.alpha**i
             new_para = old_para + coef * max_vec
             new_actor = copy.deepcopy(self.actor)
@@ -202,12 +202,12 @@ class TRPO:
         return old_para
 
     def policy_learn(self, states, actions, old_action_dists, old_log_probs,
-                     advantage):  # 更新策略函数
+                     advantage):  # update the policy
         surrogate_obj = self.compute_surrogate_obj(states, actions, advantage,
                                                    old_log_probs, self.actor)
         grads = torch.autograd.grad(surrogate_obj, self.actor.parameters())
         obj_grad = torch.cat([grad.view(-1) for grad in grads]).detach()
-        # 用共轭梯度法计算x = H^(-1)g
+        # Solve x = H^(-1)g with conjugate gradients
         descent_direction = self.conjugate_gradient(obj_grad, states,
                                                     old_action_dists)
 
@@ -217,9 +217,9 @@ class TRPO:
                               (torch.dot(descent_direction, Hd) + 1e-8))
         new_para = self.line_search(states, actions, advantage, old_log_probs,
                                     old_action_dists,
-                                    descent_direction * max_coef)  # 线性搜索
+                                    descent_direction * max_coef)  # line search
         torch.nn.utils.convert_parameters.vector_to_parameters(
-            new_para, self.actor.parameters())  # 用线性搜索后的参数更新策略
+            new_para, self.actor.parameters())  # apply the line-search parameters
 
     def update(self, transition_dict):
         states = torch.tensor(transition_dict['states'],
@@ -245,8 +245,8 @@ class TRPO:
             F.mse_loss(self.critic(states), td_target.detach()))
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
-        self.critic_optimizer.step()  # 更新价值函数
-        # 更新策略函数
+        self.critic_optimizer.step()  # update the value function
+        # Update the policy
         self.policy_learn(states, actions, old_action_dists, old_log_probs,advantage)
 
 def train_on_policy_agent(env, agent, num_episodes):
@@ -289,7 +289,7 @@ device = torch.device("cuda") if torch.cuda.is_available() else torch.device(
 env_name = 'CartPole-v0'
 env = CartPoleEnv()
 state_dim = env.state.shape[0]
-action_dim = env.action_force_mag.shape[0] #动作维度
+action_dim = env.action_force_mag.shape[0]  # action dimension
 torch.manual_seed(0)
 agent = TRPO(hidden_dim, state_dim, action_dim, lmbda,kl_constraint, alpha, critic_lr, gamma, device)
 return_list = train_on_policy_agent(env, agent, num_episodes)

@@ -1,16 +1,16 @@
-# ---- 操作系统 ----
+# ---- Operating systems ----
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# ---- 编辑器 / IDE ----
+# ---- Editors / IDEs ----
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# ---- 日志与临时文件 ----
+# ---- Logs and temporary files ----
 *.log
 logs/
 tmp/
@@ -18,7 +18,7 @@ temp/
 *.tmp
 *.bak
 
-# ---- 环境变量与密钥（务必不要提交）----
+# ---- Environment variables and secrets (never commit) ----
 .env
 .env.*
 !.env.example
@@ -69,7 +69,7 @@ vendor/
 *.a
 cmake-build-*/
 
-# ---- 压缩包与二进制产物 ----
+# ---- Archives and build artefacts ----
 *.zip
 *.tar.gz
 *.7z

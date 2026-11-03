@@ -3,20 +3,20 @@ import numpy as np
 from tqdm import tqdm
 import random
 import time
-from 时序差分 import Cliff_Walking
+from temporal_difference import Cliff_Walking
 
 class DynaQ:
-    """ Dyna-Q算法 """
+    """ Dyna-Q algorithm """
     def __init__(self,ncol,nrow,epsilon,alpha,gamma,n_planning,n_action=4):
-        self.Q_table = np.zeros([nrow * ncol, n_action])  # 初始化Q(s,a)表格
-        self.n_action = n_action  # 动作个数
-        self.alpha = alpha  # 学习率
-        self.gamma = gamma  # 折扣因子
-        self.epsilon = epsilon  # epsilon-贪婪策略中的参数
-        self.n_planning = n_planning  #执行Q-planning的次数, 对应1次Q-learning
-        self.model = dict()  # 环境模型
+        self.Q_table = np.zeros([nrow * ncol, n_action])  # initialise the Q(s, a) table
+        self.n_action = n_action  # number of actions
+        self.alpha = alpha  # learning rate
+        self.gamma = gamma  # discount factor
+        self.epsilon = epsilon  # epsilon-greedy parameter
+        self.n_planning = n_planning  # Q-planning steps per Q-learning update
+        self.model = dict()  # environment model
 
-    def take_action(self, state):  # 选取下一步的操作
+    def take_action(self, state):  # choose the next action
         if np.random.random() < self.epsilon:
             action = np.random.randint(self.n_action)
         else:
@@ -29,9 +29,9 @@ class DynaQ:
 
     def update(self, s0, a0, r, s1):
         self.q_learning(s0, a0, r, s1)
-        self.model[(s0, a0)] = r, s1  # 将数据添加到模型中
-        for _ in range(self.n_planning):  # Q-planning循环
-            # 随机选择曾经遇到过的状态动作对
+        self.model[(s0, a0)] = r, s1  # add to the model
+        for _ in range(self.n_planning):  # Q-planning loop
+            # Pick a previously seen state-action pair at random
             (s, a), (r, s_) = random.choice(list(self.model.items()))
             self.q_learning(s, a, r, s_)
 
@@ -43,25 +43,25 @@ def DynaQ_CliffWalking(n_planning):
     alpha = 0.1
     gamma = 0.9
     agent = DynaQ(ncol, nrow, epsilon, alpha, gamma, n_planning)
-    num_episodes = 300  # 智能体在环境中运行多少条序列
+    num_episodes = 300  # episodes to run
 
-    return_list = []  # 记录每一条序列的回报
-    for i in range(10):  # 显示10个进度条
-        # tqdm的进度条功能
+    return_list = []  # per-episode returns
+    for i in range(10):  # 10 progress bars
+        # tqdm progress bar
         with tqdm(total=int(num_episodes / 10),
                   desc='Iteration %d' % i) as pbar:
-            for i_episode in range(int(num_episodes / 10)):  # 每个进度条的序列数
+            for i_episode in range(int(num_episodes / 10)):  # episodes per progress bar
                 episode_return = 0
                 state = env.reset()
                 done = False
                 while not done:
                     action = agent.take_action(state)
                     next_state, reward, done = env.step(action)
-                    episode_return += reward  # 这里回报的计算不进行折扣因子衰减
+                    episode_return += reward  # no discounting in this return
                     agent.update(state, action, reward, next_state)
                     state = next_state
                 return_list.append(episode_return)
-                if (i_episode + 1) % 10 == 0:  # 每10条序列打印一下这10条序列的平均回报
+                if (i_episode + 1) % 10 == 0:  # print the mean return of every 10 episodes
                     pbar.set_postfix({
                         'episode':'%d' % (num_episodes / 10 * i + i_episode + 1),
                         'return':'%.3f' % np.mean(return_list[-10:])
@@ -73,7 +73,7 @@ np.random.seed(0)
 random.seed(0)
 n_planning_list = [0, 2, 20]
 for n_planning in n_planning_list:
-    print('Q-planning步数为：%d' % n_planning)
+    print('Q-planning steps: %d' % n_planning)
     time.sleep(0.5)
     return_list = DynaQ_CliffWalking(n_planning)
     episodes_list = list(range(len(return_list)))

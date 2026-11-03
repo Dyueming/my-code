@@ -19,60 +19,60 @@ def moving_average(a, window_size):
 
 class PendulumEnv:
     def __init__(self):
-        # 齿轮参数
-        self.max_torque = 2.0    # 最大施加的力矩
-        self.min_torque =-2.0    # 最大施加的力矩
-        self.dt = 0.05            # 时间步长
-        self.g = 9.81             # 重力加速度
-        self.length = 1.0         # 杆长
-        self.m = 0.1              # 杆的质量
-        self.action_dim=1         #将连续动作,因为目前动作只有一个。
-        self.theta_threshold_radians = 12 * np.pi / 180  # 角度阈值，约 12 度
-        self.x_threshold = 2.4  # 水平位置阈值
+        # Gear parameters
+        self.max_torque = 2.0  # maximum torque
+        self.min_torque = -2.0  # minimum torque
+        self.dt = 0.05  # time step
+        self.g = 9.81  # gravitational acceleration
+        self.length = 1.0  # pole length
+        self.m = 0.1  # pole mass
+        self.action_dim = 1  # currently a single continuous action
+        self.theta_threshold_radians = 12 * np.pi / 180  # angle threshold, about 12 degrees
+        self.x_threshold = 2.4  # horizontal position threshold
         self.reset()
 
     def reset(self):
-        # 随机初始化杆子的角度和角速度
-        self.theta = np.random.uniform(-np.pi/4, np.pi/4)  # 角度 [-pi, pi]
-        self.theta_dot = np.random.uniform(-0.5, 0.5)  # 角速度
+        # Random initial pole angle and angular velocity
+        self.theta = np.random.uniform(-np.pi/4, np.pi/4)  # pole angle
+        self.theta_dot = np.random.uniform(-0.5, 0.5)  # pole angular velocity
         self.state=np.array([self.theta, self.theta_dot])
         return self.state
 
 
     def step(self, action):
-        # 控制力矩范围， action 应在 [-2, 2] 之间
+        # Torque range: the action should stay within [-2, 2]
         torque = np.clip(action, self.min_torque, self.max_torque)
 
-        # 使用物理公式更新状态
+        # Update the state with the physical equations
         g, l, m = self.g, self.length, self.m
         theta, theta_dot = self.theta, self.theta_dot
 
-        # 运动方程
-        theta_acc = (-3 * g / (2 * l) * np.sin(theta + np.pi) + torque / (m * l ** 2))  # 角加速度
-        theta_dot += theta_acc * self.dt  # 更新角速度
-        theta += theta_dot * self.dt  # 更新角度
+        # Equations of motion
+        theta_acc = (-3 * g / (2 * l) * np.sin(theta + np.pi) + torque / (m * l ** 2))  # angular acceleration
+        theta_dot += theta_acc * self.dt  # update the angular velocity
+        theta += theta_dot * self.dt  # update the angle
 
-        # 防止theta超过范围
+        # Keep theta in range
         theta = (theta + np.pi) % (2 * np.pi) - np.pi
 
-        # 更新状态
+        # Update the state
         self.theta = theta
         self.theta_dot = theta_dot
 
-        # 奖励函数（越接近平衡，奖励越高）
-        reward = - (theta ** 2 + 0.1 * theta_dot ** 2 + 0.001 * torque ** 2)  # 负奖励
+        # Reward function (closer to balance means higher reward)
+        reward = - (theta ** 2 + 0.1 * theta_dot ** 2 + 0.001 * torque ** 2)  # negative reward
 
-        # 返回值应该包括下一个状态、奖励、是否完成、额外信息
+        # Return next state, reward, done flag and extra info
         done = (theta < -self.theta_threshold_radians or
                 theta > self.theta_threshold_radians)
-        return self.state, reward, done, {}  # 返回next_state, reward, done, info
+        return self.state, reward, done, {}  # next_state, reward, done, info
 
     def render(self):
-        # 可选实现
+        # Optional
         pass
 
     def close(self):
-        # 清理资源
+        # Clean up resources
         pass
 
 class ReplayBuffer:
@@ -105,10 +105,10 @@ class PolicyNetContinuous(torch.nn.Module):
         mu = self.fc_mu(x)
         std = F.softplus(self.fc_std(x))
         dist = Normal(mu, std)
-        normal_sample = dist.rsample()  # rsample()是重参数化采样
+        normal_sample = dist.rsample()  # rsample() uses the reparameterisation trick
         log_prob = dist.log_prob(normal_sample)
         action = torch.tanh(normal_sample)
-        # 计算tanh_normal分布的对数概率密度
+        # Log-probability of the tanh-normal distribution
         log_prob = log_prob - torch.log(1 - torch.tanh(action).pow(2) + 1e-7)
         action = action * self.action_bound
         return action, log_prob
@@ -129,23 +129,23 @@ class QValueNetContinuous(torch.nn.Module):
 
 
 class SACContinuous:
-    ''' 处理连续动作的SAC算法 '''
+    ''' SAC for continuous action spaces '''
     def __init__(self, state_dim, hidden_dim, action_dim, action_bound,
                  actor_lr, critic_lr, alpha_lr, target_entropy, tau, gamma,
                  device):
         self.actor = PolicyNetContinuous(state_dim, hidden_dim, action_dim,
-                                         action_bound).to(device)  # 策略网络
+                                         action_bound).to(device)  # actor
         self.critic_1 = QValueNetContinuous(state_dim, hidden_dim,
-                                            action_dim).to(device)  # 第一个Q网络
+                                            action_dim).to(device)  # first Q network
         self.critic_2 = QValueNetContinuous(state_dim, hidden_dim,
-                                            action_dim).to(device)  # 第二个Q网络
+                                            action_dim).to(device)  # second Q network
         self.target_critic_1 = QValueNetContinuous(state_dim,
                                                    hidden_dim, action_dim).to(
-                                                       device)  # 第一个目标Q网络
+                                                       device)  # first target Q network
         self.target_critic_2 = QValueNetContinuous(state_dim,
                                                    hidden_dim, action_dim).to(
-                                                       device)  # 第二个目标Q网络
-        # 令目标Q网络的初始参数和Q网络一样
+                                                       device)  # second target Q network
+        # Initialise the target Q network with the Q network weights
         self.target_critic_1.load_state_dict(self.critic_1.state_dict())
         self.target_critic_2.load_state_dict(self.critic_2.state_dict())
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(),
@@ -154,12 +154,12 @@ class SACContinuous:
                                                    lr=critic_lr)
         self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(),
                                                    lr=critic_lr)
-        # 使用alpha的log值,可以使训练结果比较稳定
+        # Store log(alpha) for more stable training
         self.log_alpha = torch.tensor(np.log(0.01), dtype=torch.float)
-        self.log_alpha.requires_grad = True  # 可以对alpha求梯度
+        self.log_alpha.requires_grad = True  # alpha is learnable
         self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha],
                                                     lr=alpha_lr)
-        self.target_entropy = target_entropy  # 目标熵的大小
+        self.target_entropy = target_entropy  # target entropy
         self.gamma = gamma
         self.tau = tau
         self.device = device
@@ -169,7 +169,7 @@ class SACContinuous:
         action = self.actor(state)[0]
         return [action.item()]
 
-    def calc_target(self, rewards, next_states, dones):  # 计算目标Q值
+    def calc_target(self, rewards, next_states, dones):  # compute the target Q
         next_actions, log_prob = self.actor(next_states)
         entropy = -log_prob
         q1_value = self.target_critic_1(next_states, next_actions)
@@ -196,10 +196,10 @@ class SACContinuous:
                                    dtype=torch.float).to(self.device)
         dones = torch.tensor(transition_dict['dones'],
                              dtype=torch.float).view(-1, 1).to(self.device)
-        # 和之前章节一样,对倒立摆环境的奖励进行重塑以便训练
+        # As in earlier chapters, reshape the pendulum reward for training
         rewards = (rewards + 8.0) / 8.0
 
-        # 更新两个Q网络
+        # Update both Q networks
         td_target = self.calc_target(rewards, next_states, dones)
         critic_1_loss = torch.mean(
             F.mse_loss(self.critic_1(states, actions), td_target.detach()))
@@ -212,7 +212,7 @@ class SACContinuous:
         critic_2_loss.backward()
         self.critic_2_optimizer.step()
 
-        # 更新策略网络
+        # Update the actor
         new_actions, log_prob = self.actor(states)
         entropy = -log_prob
         q1_value = self.critic_1(states, new_actions)
@@ -223,7 +223,7 @@ class SACContinuous:
         actor_loss.backward()
         self.actor_optimizer.step()
 
-        # 更新alpha值
+        # Update alpha
         alpha_loss = torch.mean(
             (entropy - self.target_entropy).detach() * self.log_alpha.exp())
         self.log_alpha_optimizer.zero_grad()
@@ -264,9 +264,9 @@ env = PendulumEnv()
 random.seed(0)
 np.random.seed(0)
 state_dim = env.state.shape[0]
-action_dim = env.action_dim    #动作维度
+action_dim = env.action_dim  # action dimension
 
-action_bound = max(abs(env.max_torque),abs(env.min_torque)) # 动作最大值 # 动作最大值
+action_bound = max(abs(env.max_torque), abs(env.min_torque))  # max action
 
 torch.manual_seed(0)
 
@@ -276,7 +276,7 @@ alpha_lr = 3e-4
 num_episodes = 100
 hidden_dim = 128
 gamma = 0.99
-tau = 0.005  # 软更新参数
+tau = 0.005  # soft update coefficient
 buffer_size = 100000
 minimal_size = 1000
 batch_size = 64

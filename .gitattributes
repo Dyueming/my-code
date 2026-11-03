@@ -1,7 +1,7 @@
-# 统一换行符，避免 Windows / macOS / Linux 协作时整文件 diff
+# Normalise line endings so Windows / macOS / Linux collaboration does not rewrite whole files
 * text=auto eol=lf
 
-# 明确按二进制处理
+# Treat these as binary
 *.png binary
 *.jpg binary
 *.jpeg binary

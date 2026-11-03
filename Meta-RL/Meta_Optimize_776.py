@@ -10,7 +10,7 @@ from Train import train_ddpg
 
 def objective(trial):
     # =========================
-    # 1. Optuna 搜索奖励权重
+    # 1. Optuna searches the reward weights
     # =========================
     wP = trial.suggest_float("wP", 0.6, 1.6)
     wI = trial.suggest_float("wI", 0.005, 0.03)
@@ -24,7 +24,7 @@ def objective(trial):
 
     trial_id = trial.number
 
-    # 每个 trial 独立文件夹，避免互相覆盖
+    # A separate folder per trial avoids overwriting
     trial_dir = os.path.join("./meta_logs_776", f"trial_{trial_id:04d}")
     model_dir = os.path.join(trial_dir, "models")
     power_dir = os.path.join(trial_dir, "power_logs")
@@ -37,7 +37,7 @@ def objective(trial):
         json.dump(reward_weights, f, indent=4, ensure_ascii=False)
 
     # =========================
-    # 2. 创建 776 MW 单工况环境
+    # 2. Build the 776 MW single-condition environment
     # =========================
     env = QinshanEnv(
         interval=1.0,
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     )
 
     # =========================
-    # 补足 5 个成功完成的 trial
+    # Top up to 5 completed trials
     # =========================
     target_complete_trials = 5
 
@@ -123,11 +123,11 @@ if __name__ == "__main__":
 
     remaining_trials = max(0, target_complete_trials - len(completed_trials))
 
-    print("\n========== 当前 Optuna 进度 ==========")
-    print(f"已成功完成 trial 数：{len(completed_trials)}")
-    print(f"失败 trial 数：{len(failed_trials)}")
-    print(f"运行中 trial 数：{len(running_trials)}")
-    print(f"还需要继续运行 trial 数：{remaining_trials}")
+    print("\n========== Optuna progress ==========")
+    print(f"Completed trials: {len(completed_trials)}")
+    print(f"Failed trials: {len(failed_trials)}")
+    print(f"Running trials: {len(running_trials)}")
+    print(f"Trials still to run: {remaining_trials}")
 
     if remaining_trials > 0:
         study.optimize(
@@ -136,10 +136,10 @@ if __name__ == "__main__":
             catch=(PermissionError,)
         )
     else:
-        print("已经完成足够数量的 trial，不再继续搜索。")
+        print("Enough trials completed, stopping the search.")
 
 
-    print("\n========== 最优结果 ==========")
+    print("\n========== Best result ==========")
     print("best_params:", study.best_params)
     print("best_score:", study.best_value)
 

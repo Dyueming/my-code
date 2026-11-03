@@ -27,60 +27,60 @@ def moving_average(a, window_size):
 
 class PendulumEnv:
     def __init__(self):
-        # 齿轮参数
-        self.max_torque = 2.0    # 最大施加的力矩
-        self.min_torque =-2.0    # 最大施加的力矩
-        self.dt = 0.05            # 时间步长
-        self.g = 9.81             # 重力加速度
-        self.length = 1.0         # 杆长
-        self.m = 0.1              # 杆的质量
-        self.action_dim=1         #将连续动作,因为目前动作只有一个。
-        self.theta_threshold_radians = 12 * np.pi / 180  # 角度阈值，约 12 度
-        self.x_threshold = 2.4  # 水平位置阈值
+        # Gear parameters
+        self.max_torque = 2.0  # maximum torque
+        self.min_torque = -2.0  # minimum torque
+        self.dt = 0.05  # time step
+        self.g = 9.81  # gravitational acceleration
+        self.length = 1.0  # pole length
+        self.m = 0.1  # pole mass
+        self.action_dim = 1  # currently a single continuous action
+        self.theta_threshold_radians = 12 * np.pi / 180  # angle threshold, about 12 degrees
+        self.x_threshold = 2.4  # horizontal position threshold
         self.reset()
 
     def reset(self):
-        # 随机初始化杆子的角度和角速度
-        self.theta = np.random.uniform(-np.pi/4, np.pi/4)  # 角度 [-pi, pi]
-        self.theta_dot = np.random.uniform(-0.5, 0.5)  # 角速度
+        # Random initial pole angle and angular velocity
+        self.theta = np.random.uniform(-np.pi/4, np.pi/4)  # pole angle
+        self.theta_dot = np.random.uniform(-0.5, 0.5)  # pole angular velocity
         self.state=np.array([self.theta, self.theta_dot])
         return self.state
 
 
     def step(self, action):
-        # 控制力矩范围， action 应在 [-2, 2] 之间
+        # Torque range: the action should stay within [-2, 2]
         torque = np.clip(action, self.min_torque, self.max_torque)
 
-        # 使用物理公式更新状态
+        # Update the state with the physical equations
         g, l, m = self.g, self.length, self.m
         theta, theta_dot = self.theta, self.theta_dot
 
-        # 运动方程
-        theta_acc = (-3 * g / (2 * l) * np.sin(theta + np.pi) + torque / (m * l ** 2))  # 角加速度
-        theta_dot += theta_acc * self.dt  # 更新角速度
-        theta += theta_dot * self.dt  # 更新角度
+        # Equations of motion
+        theta_acc = (-3 * g / (2 * l) * np.sin(theta + np.pi) + torque / (m * l ** 2))  # angular acceleration
+        theta_dot += theta_acc * self.dt  # update the angular velocity
+        theta += theta_dot * self.dt  # update the angle
 
-        # 防止theta超过范围
+        # Keep theta in range
         theta = (theta + np.pi) % (2 * np.pi) - np.pi
 
-        # 更新状态
+        # Update the state
         self.theta = theta
         self.theta_dot = theta_dot
 
-        # 奖励函数（越接近平衡，奖励越高）
-        reward = - (theta ** 2 + 0.1 * theta_dot ** 2 + 0.001 * torque ** 2)  # 负奖励
+        # Reward function (closer to balance means higher reward)
+        reward = - (theta ** 2 + 0.1 * theta_dot ** 2 + 0.001 * torque ** 2)  # negative reward
 
-        # 返回值应该包括下一个状态、奖励、是否完成、额外信息
+        # Return next state, reward, done flag and extra info
         done = (theta < -self.theta_threshold_radians or
                 theta > self.theta_threshold_radians)
-        return self.state, reward, done, {}  # 返回next_state, reward, done, info
+        return self.state, reward, done, {}  # next_state, reward, done, info
 
     def render(self):
-        # 可选实现
+        # Optional
         pass
 
     def close(self):
-        # 清理资源
+        # Clean up resources
         pass
 
 class PolicyNetContinuous(torch.nn.Module):
@@ -94,7 +94,7 @@ class PolicyNetContinuous(torch.nn.Module):
         x = F.relu(self.fc1(x))
         mu = 2.0 * torch.tanh(self.fc_mu(x))
         std = F.softplus(self.fc_std(x))
-        return mu, std  # 高斯分布的均值和标准差
+        return mu, std  # mean and std of the Gaussian
 
 
 class ValueNet(torch.nn.Module):
@@ -108,7 +108,7 @@ class ValueNet(torch.nn.Module):
         return self.fc2(x)
 
 class PPOContinuous:
-    ''' 处理连续动作的PPO算法 '''
+    ''' PPO for continuous action spaces '''
     def __init__(self, state_dim, hidden_dim, action_dim, actor_lr, critic_lr,
                  lmbda, epochs, eps, gamma, device):
         self.actor = PolicyNetContinuous(state_dim, hidden_dim,
@@ -142,14 +142,14 @@ class PPOContinuous:
                                    dtype=torch.float).to(self.device)
         dones = torch.tensor(transition_dict['dones'],
                              dtype=torch.float).view(-1, 1).to(self.device)
-        rewards = (rewards + 8.0) / 8.0  # 和TRPO一样,对奖励进行修改,方便训练
+        rewards = (rewards + 8.0) / 8.0  # reward reshaping as in TRPO
         td_target = rewards + self.gamma * self.critic(next_states) * (1 -
                                                                        dones)
         td_delta = td_target - self.critic(states)
         advantage =compute_advantage(self.gamma, self.lmbda,td_delta.cpu()).to(self.device)
         mu, std = self.actor(states)
         action_dists = torch.distributions.Normal(mu.detach(), std.detach())
-        # 动作是正态分布
+        # The action follows a normal distribution
         old_log_probs = action_dists.log_prob(actions)
 
         for _ in range(self.epochs):
@@ -209,7 +209,7 @@ device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cp
 env_name = 'Pendulum-v0'
 env = PendulumEnv()
 state_dim = env.state.shape[0]
-action_dim = env.action_dim    #动作维度
+action_dim = env.action_dim  # action dimension
 torch.manual_seed(0)
 agent = PPOContinuous(state_dim, hidden_dim, action_dim, actor_lr, critic_lr,
                       lmbda, epochs, eps, gamma, device)

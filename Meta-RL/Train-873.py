@@ -13,9 +13,9 @@ def train_ddpg(
     batch_size=64,
     minimal_size=1000,
     gamma_update_every_step=True,
-    noise_type="gaussian",     # "gaussian" 或 "ou"
-    noise_std=0.2,             # 高斯噪声幅度（作用在 [-1,1] 的 u 上）
-    noise_decay=0.995,        # 噪声衰减
+    noise_type="gaussian",  # "gaussian" or "ou"
+    noise_std=0.2,  # Gaussian noise scale (applied to u in [-1, 1])
+    noise_decay=0.995,  # noise decay
     ou_theta=0.15,
     ou_sigma=0.2,
     save_every=10,
@@ -27,7 +27,7 @@ def train_ddpg(
     os.makedirs(power_dir, exist_ok=True)
     os.makedirs(temp_dir, exist_ok=True)
 
-    # OU 噪声状态（如果你选 ou）
+    # OU noise state (only when noise_type is "ou")
     ou_state = 0.0
     episode_rewards = []
     episode_scores = []
@@ -39,10 +39,10 @@ def train_ddpg(
     os.makedirs(model_dir, exist_ok=True)
 
 
-    target_fracs = list(env.target_fractions)  # 例如 [0.9, 0.8, 0.7, 0.6]
+    target_fracs = list(env.target_fractions)  # e.g. [0.9, 0.8, 0.7, 0.6]
     counts = {tf: 0 for tf in target_fracs}
 
-    # 初始化 reward/score 记录文件，只写一次表头
+    # Create the reward/score file and write the header once
     with open(reward_txt_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
@@ -68,7 +68,7 @@ def train_ddpg(
 
     for ep in range(1, num_episodes + 1):
 
-        # 每回合“随机”，但优先从当前训练次数最少的工况里随机选
+        # Random target per episode, preferring the least-trained condition
         min_count = min(counts[tf] for tf in target_fracs)
         candidates = [tf for tf in target_fracs if counts[tf] == min_count]
         chosen_tf = float(np.random.choice(candidates))
@@ -76,9 +76,9 @@ def train_ddpg(
         obs, info = env.reset(options={"target_frac": chosen_tf})
         counts[chosen_tf] += 1
 
-        print("目标功率：", info["P_ref"])
+        print("Target power:", info["P_ref"])
 
-        rho_accum = float(env.rho_accum)  # 初始通常是 0.0（来自你的 env.reset）
+        rho_accum = float(env.rho_accum)  # usually 0.0 right after env.reset
 
         ep_reward = 0.0
         terminated = False
@@ -86,44 +86,44 @@ def train_ddpg(
         done = False
 
         power_list = []
-        temp_list = []  # 存 Tavg
+        temp_list = []  # stores Tavg
         t_in_list = []
         t_out_list = []
 
-        ou_state = 0.0  # 每回合重置OU噪声
+        ou_state = 0.0  # reset OU noise each episode
 
-        # 你 env 内部 max_steps=200，这里也用它更一致
+        # The env uses max_steps=200; match it here
         for t in range(env.max_steps):
-            print(f"第{ep}回合，第{t}步：")
+            print(f"Episode {ep}, step {t}:")
             if t == 0:
                 reset = True
             else:
                 reset = False
-            # 1) 策略动作 u ∈ [-1,1]
+            # 1) policy action u in [-1, 1]
             u = agent.take_action(obs)
-            # 2) 加探索噪声（作用在 u 上）
+            # 2) Add exploration noise (applied to u)
             noise = get_noise()
             u_noisy = float(np.clip(u + noise, -1.0, 1.0))
 
-            # 3) u -> 物理动作：action_rate = 反应性变化率（每秒）
+            # 3) u -> physical action: action_rate = reactivity change rate per second
             action_rate = env.denormalize_action(u_noisy)
-            print("动作：",action_rate)
-            # 4) 更新累计反应性：rho_accum += action_rate * interval
+            print("Action:", action_rate)
+            # 4) Update accumulated reactivity: rho_accum += action_rate * interval
             rho_accum = float(rho_accum + action_rate * env.interval)
-            print("累计反应性：",rho_accum)
-            # 可选：把 rho_accum 限制在环境允许范围内（环境里也会终止并给 -100）
+            print("Accumulated reactivity:", rho_accum)
+            # Optional: clamp rho_accum to the allowed range (the env also terminates with -100)
             rho_accum = float(np.clip(rho_accum, env.rho_accum_min, env.rho_accum_max))
 
-            # 5) 构造 control_variable，写入 rho_accum 到 [-3]
+            # 5) Build control_variable and write rho_accum into [-3]
             control_variable = []
             control_variable.append(str(rho_accum))
             control_variable.append(str(t))
             control_variable.append(str(float(t+1)))
 
-            # 6) 环境一步
+            # 6) One environment step
             next_obs, reward, terminated, truncated, info_step = env.step(reset, control_variable)
 
-            print("归一化状态：",next_obs, '\n')
+            print("Normalised state:", next_obs, '\n')
             done = bool(terminated) or bool(truncated)
             ep_reward += float(reward)
 
@@ -137,15 +137,15 @@ def train_ddpg(
                 if "t_out" in info_step:
                     t_out_list.append(float(info_step["t_out"]))
 
-            # 7) 写入经验回放
-            # 注意：replay_buffer 里 action 建议存 u_noisy（归一化动作）
+            # 7) Store the transition in the replay buffer
+            # Note: store action as u_noisy (the normalised action) in the replay buffer
             replay_buffer.add(obs, u_noisy, reward, next_obs, done)
 
             obs = next_obs
 
-            # 8) 采样更新（需要 dict 形式）
+            # 8) Sample and update (dict form required)
             if replay_buffer.size() >= minimal_size and (len(replay_buffer.buffer) if hasattr(replay_buffer, "buffer") else replay_buffer.size()) >= batch_size:
-                # 采样
+                # Sample
                 s, a, r, s2, d = replay_buffer.sample(batch_size)
 
                 transition_dict = {
@@ -160,34 +160,34 @@ def train_ddpg(
             if done:
                 break
 
-        # 噪声衰减
+        # Noise decay
         noise_std = max(0.02, noise_std * noise_decay)
 
         episode_rewards.append(ep_reward)
 
-        # 保存每回合的功率/温度轨迹（每个文件：两列：t_index, value）
+        # Save power/temperature traces per episode (each file: t_index, value)
         P_ref = float(info["P_ref"])
         T_ref = float(info["T_ref"])
 
-        # ====== 用真实控制效果评价本回合，不用 reward 评价 ======
+        # ====== Score the episode by real control performance, not by reward ======
         if len(power_list) > 0:
             P_arr = np.array(power_list, dtype=float)
             P_ref = float(info["P_ref"])
 
             n = len(P_arr)
 
-            # 1. 全过程平均绝对误差
+            # 1. Mean absolute error over the whole episode
             mean_abs_error = np.mean(np.abs(P_arr - P_ref))
 
-            # 2. 最大下冲量：降功率任务中，低于目标太多是不理想的
+            # 2. Maximum undershoot: dropping too far below the target is undesirable
             undershoot = max(0.0, P_ref - np.min(P_arr))
 
-            # 3. 末段平均误差：看最后一段是否稳定接近目标
+            # 3. Tail mean error: whether the final segment settles near the target
             tail_len = min(100, n)
             tail = P_arr[-tail_len:]
             tail_mae = np.mean(np.abs(tail - P_ref))
 
-            # 4. 稳定时间：进入 ±2 MW 误差带并保持到结束
+            # 4. Settling time: enter the +-2 MW band and hold it until the end
             band = 2.0
             settling_time = n
 
@@ -198,7 +198,7 @@ def train_ddpg(
 
             settling_ratio = settling_time / n
 
-            # 5. 综合评价值，越小越好
+            # 5. Overall score; lower is better
             score = (
                     0.5 * mean_abs_error
                     + 2.0 * undershoot
@@ -215,7 +215,7 @@ def train_ddpg(
 
         episode_scores.append(float(score))
 
-        # ====== 保存历史最佳模型 ======
+        # ====== Save the best model so far ======
         if score < best_score:
             best_score = float(score)
             best_ep = int(ep)
@@ -223,9 +223,9 @@ def train_ddpg(
             agent.save_models(save_dir=model_dir, tag="best")
             replay_buffer.save(os.path.join(model_dir, "replay_buffer_best.txt"))
 
-            print(f"发现更优模型：Episode {ep}, best_score={best_score:.3f}")
+            print(f"Better model found: episode {ep}, best_score={best_score:.3f}")
 
-        # 每个 episode 结束后追加写入 CSV
+        # Append to the CSV after each episode
         with open(reward_txt_path, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
@@ -258,7 +258,7 @@ def train_ddpg(
             for i, v in enumerate(power_list):
                 writer.writerow([i, v])
 
-        # temp csv（4列）
+        # temp csv (4 columns)
         with open(temp_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(["t_index", "t_in", "t_out", "Tavg"])
@@ -268,22 +268,22 @@ def train_ddpg(
         # print(f"[Episode {ep:04d}] reward={ep_reward:.3f}, steps={t + 1}, done={done}")
 
 
-        # 定期保存
+        # Periodic checkpointing
         if ep % save_every == 0:
             tag = f"ep_{ep:04d}"
 
-            # 每10回合保存一版模型，不覆盖
+            # Snapshot the model every 10 episodes without overwriting
             agent.save_models(save_dir=model_dir, tag=tag)
 
-            # 保存 latest 模型，覆盖更新，方便后续继续训练
+            # Save the latest model (overwrite) so training can resume
             agent.save_models(save_dir=model_dir, tag="latest")
 
-            # 经验池只保存最新版本，直接覆盖
+            # Keep only the latest replay buffer (overwrite)
             replay_buffer.save(os.path.join(model_dir, "replay_buffer.txt"))
 
-            print(f"已保存 Episode {ep} 模型快照、latest模型和最新经验池到：{model_dir}")
+            print(f"Saved episode {ep} snapshot, latest model and replay buffer to: {model_dir}")
 
-    print(f"\n已保存：{reward_txt_path}")
+    print(f"\nSaved: {reward_txt_path}")
 
     if len(episode_scores) >= 5:
         return float(np.mean(episode_scores[-5:]))
@@ -292,11 +292,11 @@ def train_ddpg(
 
 
 # =========================
-# 你需要在这里配置超参数并启动训练
+# Configure hyperparameters and start training here
 # =========================
 if __name__ == "__main__":
-    # 只训练 873 MW 工况，也就是 0.9 工况
-    # 不传 reward_weights，使用 Env.py 里的默认权重：
+    # Train only the 873 MW (0.9) condition
+    # Without reward_weights the defaults in Env.py are used:
     # wP=1.0, wI=0.015, wD=0.02
     env = QinshanEnv(interval=1.0, target_fractions=(0.9,))
 

@@ -18,36 +18,36 @@ def moving_average(a, window_size):
 
 class CartPoleEnv:
     def __init__(self):
-        self.gravity = 9.8             # 重力加速度
-        self.masscart = 1.0            # 车辆质量
-        self.masspole = 0.1             # 杆子质量
+        self.gravity = 9.8  # gravitational acceleration
+        self.masscart = 1.0  # cart mass
+        self.masspole = 0.1  # pole mass
         self.total_mass = self.masscart + self.masspole
-        self.length = 0.5               # 杆子长度
+        self.length = 0.5  # pole length
         self.polemass_length = self.masspole * self.length
         self.action_force_mag = np.array([-10.0,
                                    -5.0,
                                    0.0,
                                    5.0,
-                                   10.0])# 力的大小（动作只有六个）
-        self.tau = 0.02                 # 时间步长
-        self.theta_threshold_radians = 12 * 2 * np.pi / 360  # 杆子的阈值
-        self.x_threshold = 2.4           # 车辆的阈值
+                                   10.0])  # force magnitude (six actions only)
+        self.tau = 0.02  # time step
+        self.theta_threshold_radians = 12 * 2 * np.pi / 360  # pole angle threshold
+        self.x_threshold = 2.4  # cart position threshold
         self.reset()
 
     def reset(self):
-        self.state = np.array([0.0,  # 位置
-                                0.0,  # 速度
-                                np.random.uniform(-0.05, 0.05),  # 杆子的角度
-                                0.0])  # 杆子的角速度
+        self.state = np.array([0.0,  # position
+                                0.0,  # velocity
+                                np.random.uniform(-0.05, 0.05),  # pole angle
+                                0.0])  # pole angular velocity
         return self.state
 
     def step(self, action):
         x, x_dot, theta, theta_dot = self.state
 
-        # 应用力
+        # Apply the force
         force=self.action_force_mag[action]
 
-        # 物理公式计算
+        # Physical equations
         costheta = np.cos(theta)
         sintheta = np.sin(theta)
 
@@ -60,73 +60,73 @@ class CartPoleEnv:
         theta += self.tau * theta_dot
         theta_dot += self.tau * theta_acc
 
-        # 更新状态
+        # Update the state
         self.state = np.array([x, x_dot, theta, theta_dot])
 
-        # 判断是否完成
+        # Check for termination
         done = theta < -self.theta_threshold_radians or theta > self.theta_threshold_radians or x < -self.x_threshold or x > self.x_threshold
 
-        # 奖励函数
-        reward = 1.0 if not done else 0.0  # 每一步奖励 +1，失败时奖励 0
+        # Reward function
+        reward = 1.0 if not done else 0.0  # +1 per step, 0 on failure
 
         return self.state, reward, done, {}
 
     def render(self):
-        # 可视化代码可选实现
+        # Visualisation is optional
         pass
 
     def close(self):
-        # 如果有资源需要清理，可以在这里添加
+        # Add resource cleanup here if needed
         pass
 
 
 class ReplayBuffer:
-    ''' 经验回放池 '''
+    ''' Replay buffer '''
     def __init__(self, capacity):
-        self.buffer = collections.deque(maxlen=capacity)  # 队列,先进先出
+        self.buffer = collections.deque(maxlen=capacity)  # FIFO queue
 
-    def add(self, state, action, reward, next_state, done):  # 将数据加入buffer
+    def add(self, state, action, reward, next_state, done):  # add a transition to the buffer
         self.buffer.append((state, action, reward, next_state, done))
 
-    def sample(self, batch_size):  # 从buffer中采样数据,数量为batch_size
+    def sample(self, batch_size):  # sample batch_size transitions from the buffer
         transitions = random.sample(self.buffer, batch_size)
         state, action, reward, next_state, done = zip(*transitions)
         return np.array(state), action, reward, np.array(next_state), done
 
-    def size(self):  # 目前buffer中数据的数量
+    def size(self):  # number of transitions currently in the buffer
         return len(self.buffer)
 
 class Qnet(torch.nn.Module):
-    ''' 只有一层隐藏层的Q网络 '''
+    ''' Q network with one hidden layer '''
     def __init__(self, state_dim, hidden_dim, action_dim):
         super(Qnet, self).__init__()
         self.fc1 = torch.nn.Linear(state_dim, hidden_dim)
         self.fc2 = torch.nn.Linear(hidden_dim, action_dim)
 
     def forward(self, x):
-        x = F.relu(self.fc1(x))  # 隐藏层使用ReLU激活函数
+        x = F.relu(self.fc1(x))  # ReLU in the hidden layer
         return self.fc2(x)
 
 class DQN:
-    ''' DQN算法 '''
+    ''' DQN algorithm '''
     def __init__(self, state_dim, hidden_dim, action_dim, learning_rate, gamma,
                  epsilon, target_update, device):
         self.action_dim = action_dim
         self.q_net = Qnet(state_dim, hidden_dim,
-                          self.action_dim).to(device)  # Q网络
-        # 目标网络
+                          self.action_dim).to(device)  # Q network
+        # Target network
         self.target_q_net = Qnet(state_dim, hidden_dim,
                                  self.action_dim).to(device)
-        # 使用Adam优化器
+        # Adam optimiser
         self.optimizer = torch.optim.Adam(self.q_net.parameters(),
                                           lr=learning_rate)
-        self.gamma = gamma  # 折扣因子
-        self.epsilon = epsilon  # epsilon-贪婪策略
-        self.target_update = target_update  # 目标网络更新频率
-        self.count = 0  # 计数器,记录更新次数
+        self.gamma = gamma  # discount factor
+        self.epsilon = epsilon  # epsilon-greedy
+        self.target_update = target_update  # target network update frequency
+        self.count = 0  # update counter
         self.device = device
 
-    def take_action(self, state):  # epsilon-贪婪策略采取动作
+    def take_action(self, state):  # epsilon-greedy action selection
         if np.random.random() < self.epsilon:
             action = np.random.randint(self.action_dim)
         else:
@@ -146,20 +146,20 @@ class DQN:
         dones = torch.tensor(transition_dict['dones'],
                              dtype=torch.float).view(-1, 1).to(self.device)
 
-        q_values = self.q_net(states).gather(1, actions)  # Q值
-        # 下个状态的最大Q值
+        q_values = self.q_net(states).gather(1, actions)  # Q values
+        # Max Q value of the next state
         max_next_q_values = self.target_q_net(next_states).max(1)[0].view(
             -1, 1)
         q_targets = rewards + self.gamma * max_next_q_values * (1 - dones
-                                                                )  # TD误差目标
-        dqn_loss = torch.mean(F.mse_loss(q_values, q_targets))  # 均方误差损失函数
-        self.optimizer.zero_grad()  # PyTorch中默认梯度会累积,这里需要显式将梯度置为0
-        dqn_loss.backward()  # 反向传播更新参数
+                                                                )  # TD target
+        dqn_loss = torch.mean(F.mse_loss(q_values, q_targets))  # MSE loss
+        self.optimizer.zero_grad()  # PyTorch accumulates gradients, so zero them explicitly
+        dqn_loss.backward()  # backpropagate and update
         self.optimizer.step()
 
         if self.count % self.target_update == 0:
             self.target_q_net.load_state_dict(
-                self.q_net.state_dict())  # 更新目标网络
+                self.q_net.state_dict())  # update the target network
         self.count += 1
 
 lr = 2e-3
@@ -178,7 +178,7 @@ np.random.seed(0)
 torch.manual_seed(0)
 replay_buffer = ReplayBuffer(buffer_size)
 state_dim = env.state.shape[0]
-action_dim = env.action_force_mag.shape[0] #动作维度
+action_dim = env.action_force_mag.shape[0]  # action dimension
 agent = DQN(state_dim, hidden_dim, action_dim, lr, gamma, epsilon,
             target_update, device)
 
@@ -195,7 +195,7 @@ for i in range(10):
                 replay_buffer.add(state, action, reward, next_state, done)
                 state = next_state
                 episode_return += reward
-                # 当buffer数据的数量超过一定值后,才进行Q网络训练
+                # Start Q-network training only after the buffer exceeds a threshold
                 if replay_buffer.size() > minimal_size:
                     b_s, b_a, b_r, b_ns, b_d = replay_buffer.sample(batch_size)
                     transition_dict = {

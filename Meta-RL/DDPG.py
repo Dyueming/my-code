@@ -61,15 +61,15 @@ class DDPG:
         self.Critic = Critic(state_dim, hidden_dim, action_dim).to(device)
         self.target_Actor = Actor(state_dim, hidden_dim, action_dim).to(device)
         self.target_Critic = Critic(state_dim, hidden_dim, action_dim).to(device)
-        # 初始化目标网络并设置相同的参数
+        # Initialise the target network with the same weights
         self.target_Actor.load_state_dict(self.Actor.state_dict())
         self.target_Critic.load_state_dict(self.Critic.state_dict())
 
         self.Actor_optimizer = torch.optim.Adam(self.Actor.parameters(), lr=actor_lr)
         self.Critic_optimizer = torch.optim.Adam(self.Critic.parameters(), lr=critic_lr)
         self.action_dim = action_dim
-        self.gamma = gamma  # 折扣因子
-        self.tau = tau      # 目标网络软更新参数
+        self.gamma = gamma  # discount factor
+        self.tau = tau  # soft update coefficient
         self.device = device
 
     def save_models(self, save_dir="./models", tag=""):

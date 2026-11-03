@@ -20,36 +20,36 @@ def moving_average(a, window_size):
 
 class CartPoleEnv:
     def __init__(self):
-        self.gravity = 9.8             # 重力加速度
-        self.masscart = 1.0            # 车辆质量
-        self.masspole = 0.1             # 杆子质量
+        self.gravity = 9.8  # gravitational acceleration
+        self.masscart = 1.0  # cart mass
+        self.masspole = 0.1  # pole mass
         self.total_mass = self.masscart + self.masspole
-        self.length = 0.5               # 杆子长度
+        self.length = 0.5  # pole length
         self.polemass_length = self.masspole * self.length
         self.action_force_mag = np.array([-10.0,
                                    -5.0,
                                    0.0,
                                    5.0,
-                                   10.0])# 力的大小（动作只有六个）
-        self.tau = 0.02                 # 时间步长
-        self.theta_threshold_radians = 12 * 2 * np.pi / 360  # 杆子的阈值
-        self.x_threshold = 2.4           # 车辆的阈值
+                                   10.0])  # force magnitude (six actions only)
+        self.tau = 0.02  # time step
+        self.theta_threshold_radians = 12 * 2 * np.pi / 360  # pole angle threshold
+        self.x_threshold = 2.4  # cart position threshold
         self.reset()
 
     def reset(self):
-        self.state = np.array([0.0,  # 位置
-                                0.0,  # 速度
-                                np.random.uniform(-0.05, 0.05),  # 杆子的角度
-                                0.0])  # 杆子的角速度
+        self.state = np.array([0.0,  # position
+                                0.0,  # velocity
+                                np.random.uniform(-0.05, 0.05),  # pole angle
+                                0.0])  # pole angular velocity
         return self.state
 
     def step(self, action):
         x, x_dot, theta, theta_dot = self.state
 
-        # 应用力
+        # Apply the force
         force=self.action_force_mag[action]
 
-        # 物理公式计算
+        # Physical equations
         costheta = np.cos(theta)
         sintheta = np.sin(theta)
 
@@ -62,23 +62,23 @@ class CartPoleEnv:
         theta += self.tau * theta_dot
         theta_dot += self.tau * theta_acc
 
-        # 更新状态
+        # Update the state
         self.state = np.array([x, x_dot, theta, theta_dot])
 
-        # 判断是否完成
+        # Check for termination
         done = theta < -self.theta_threshold_radians or theta > self.theta_threshold_radians or x < -self.x_threshold or x > self.x_threshold
 
-        # 奖励函数
-        reward = 1.0 if not done else 0.0  # 每一步奖励 +1，失败时奖励 0
+        # Reward function
+        reward = 1.0 if not done else 0.0  # +1 per step, 0 on failure
 
         return self.state, reward, done, {}
 
     def render(self):
-        # 可视化代码可选实现
+        # Visualisation is optional
         pass
 
     def close(self):
-        # 如果有资源需要清理，可以在这里添加
+        # Add resource cleanup here if needed
         pass
 
 class ReplayBuffer:
@@ -108,7 +108,7 @@ class PolicyNet(torch.nn.Module):
 
 
 class QValueNet(torch.nn.Module):
-    ''' 只有一层隐藏层的Q网络 '''
+    ''' Q network with one hidden layer '''
     def __init__(self, state_dim, hidden_dim, action_dim):
         super(QValueNet, self).__init__()
         self.fc1 = torch.nn.Linear(state_dim, hidden_dim)
@@ -119,20 +119,20 @@ class QValueNet(torch.nn.Module):
         return self.fc2(x)
 
 class SAC:
-    ''' 处理离散动作的SAC算法 '''
+    ''' SAC for discrete action spaces '''
     def __init__(self, state_dim, hidden_dim, action_dim, actor_lr, critic_lr,
                  alpha_lr, target_entropy, tau, gamma, device):
-        # 策略网络
+        # Actor network
         self.actor = PolicyNet(state_dim, hidden_dim, action_dim).to(device)
-        # 第一个Q网络
+        # First Q network
         self.critic_1 = QValueNet(state_dim, hidden_dim, action_dim).to(device)
-        # 第二个Q网络
+        # Second Q network
         self.critic_2 = QValueNet(state_dim, hidden_dim, action_dim).to(device)
         self.target_critic_1 = QValueNet(state_dim, hidden_dim,
-                                         action_dim).to(device)  # 第一个目标Q网络
+                                         action_dim).to(device)  # first target Q network
         self.target_critic_2 = QValueNet(state_dim, hidden_dim,
-                                         action_dim).to(device)  # 第二个目标Q网络
-        # 令目标Q网络的初始参数和Q网络一样
+                                         action_dim).to(device)  # second target Q network
+        # Initialise the target Q network with the Q network weights
         self.target_critic_1.load_state_dict(self.critic_1.state_dict())
         self.target_critic_2.load_state_dict(self.critic_2.state_dict())
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(),
@@ -141,12 +141,12 @@ class SAC:
                                                    lr=critic_lr)
         self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(),
                                                    lr=critic_lr)
-        # 使用alpha的log值,可以使训练结果比较稳定
+        # Store log(alpha) for more stable training
         self.log_alpha = torch.tensor(np.log(0.01), dtype=torch.float)
-        self.log_alpha.requires_grad = True  # 可以对alpha求梯度
+        self.log_alpha.requires_grad = True  # alpha is learnable
         self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha],
                                                     lr=alpha_lr)
-        self.target_entropy = target_entropy  # 目标熵的大小
+        self.target_entropy = target_entropy  # target entropy
         self.gamma = gamma
         self.tau = tau
         self.device = device
@@ -158,7 +158,7 @@ class SAC:
         action = action_dist.sample()
         return action.item()
 
-    # 计算目标Q值,直接用策略网络的输出概率进行期望计算
+    # Target Q value as an expectation over the policy probabilities
     def calc_target(self, rewards, next_states, dones):
         next_probs = self.actor(next_states)
         next_log_probs = torch.log(next_probs + 1e-8)
@@ -182,7 +182,7 @@ class SAC:
         states = torch.tensor(transition_dict['states'],
                               dtype=torch.float).to(self.device)
         actions = torch.tensor(transition_dict['actions']).view(-1, 1).to(
-            self.device)  # 动作不再是float类型
+            self.device)  # the action is no longer a float
         rewards = torch.tensor(transition_dict['rewards'],
                                dtype=torch.float).view(-1, 1).to(self.device)
         next_states = torch.tensor(transition_dict['next_states'],
@@ -190,7 +190,7 @@ class SAC:
         dones = torch.tensor(transition_dict['dones'],
                              dtype=torch.float).view(-1, 1).to(self.device)
 
-        # 更新两个Q网络
+        # Update both Q networks
         td_target = self.calc_target(rewards, next_states, dones)
         critic_1_q_values = self.critic_1(states).gather(1, actions)
         critic_1_loss = torch.mean(
@@ -205,22 +205,22 @@ class SAC:
         critic_2_loss.backward()
         self.critic_2_optimizer.step()
 
-        # 更新策略网络
+        # Update the actor
         probs = self.actor(states)
         log_probs = torch.log(probs + 1e-8)
-        # 直接根据概率计算熵
+        # Compute entropy directly from the probabilities
         entropy = -torch.sum(probs * log_probs, dim=1, keepdim=True)  #
         q1_value = self.critic_1(states)
         q2_value = self.critic_2(states)
         min_qvalue = torch.sum(probs * torch.min(q1_value, q2_value),
                                dim=1,
-                               keepdim=True)  # 直接根据概率计算期望
+                               keepdim=True)  # expectation over the probabilities
         actor_loss = torch.mean(-self.log_alpha.exp() * entropy - min_qvalue)
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
 
-        # 更新alpha值
+        # Update alpha
         alpha_loss = torch.mean(
             (entropy - target_entropy).detach() * self.log_alpha.exp())
         self.log_alpha_optimizer.zero_grad()
@@ -261,7 +261,7 @@ alpha_lr = 1e-2
 num_episodes = 200
 hidden_dim = 128
 gamma = 0.98
-tau = 0.005  # 软更新参数
+tau = 0.005  # soft update coefficient
 buffer_size = 10000
 minimal_size = 500
 batch_size = 64
@@ -275,7 +275,7 @@ np.random.seed(0)
 torch.manual_seed(0)
 replay_buffer =ReplayBuffer(buffer_size)
 state_dim = env.state.shape[0]
-action_dim = env.action_force_mag.shape[0] #动作维度
+action_dim = env.action_force_mag.shape[0]  # action dimension
 agent = SAC(state_dim, hidden_dim, action_dim, actor_lr, critic_lr, alpha_lr,
             target_entropy, tau, gamma, device)
 

@@ -10,9 +10,9 @@ from Train import train_ddpg
 
 def objective(trial):
     # =========================
-    # 1. Optuna 搜索奖励权重
+    # 1. Optuna searches the reward weights
     # =========================
-    # 以你当前有效 baseline 为中心，不要范围太大
+    # Centre the search on the current valid baseline; keep the range modest
     wP = trial.suggest_float("wP", 0.6, 1.6)
     wI = trial.suggest_float("wI", 0.005, 0.03)
     wD = trial.suggest_float("wD", 0.005, 0.03)
@@ -25,7 +25,7 @@ def objective(trial):
 
     trial_id = trial.number
 
-    # 每个 trial 独立文件夹，避免互相覆盖
+    # A separate folder per trial avoids overwriting
     trial_dir = os.path.join("./meta_logs_873", f"trial_{trial_id:04d}")
     model_dir = os.path.join(trial_dir, "models")
     power_dir = os.path.join(trial_dir, "power_logs")
@@ -34,12 +34,12 @@ def objective(trial):
 
     os.makedirs(trial_dir, exist_ok=True)
 
-    # 保存当前 trial 的权重参数
+    # Save the weights of the current trial
     with open(os.path.join(trial_dir, "reward_weights.json"), "w", encoding="utf-8") as f:
         json.dump(reward_weights, f, indent=4, ensure_ascii=False)
 
     # =========================
-    # 2. 创建 873 MW 单工况环境
+    # 2. Build the 873 MW single-condition environment
     # =========================
     env = QinshanEnv(
         interval=1.0,
@@ -54,7 +54,7 @@ def objective(trial):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # =========================
-    # 3. 每个 trial 重新初始化智能体
+    # 3. Re-initialise the agent for every trial
     # =========================
     agent = DDPG(
         state_dim=state_dim,
@@ -67,11 +67,11 @@ def objective(trial):
         device=device,
     )
 
-    # 你现在单工况训练建议用 15000
+    # 15000 episodes is recommended for single-condition training
     replay_buffer = ReplayBuffer(capacity=15000)
 
     # =========================
-    # 4. 内层 DDPG 训练
+    # 4. Inner DDPG training
     # =========================
     score = train_ddpg(
         env=env,
@@ -110,10 +110,10 @@ if __name__ == "__main__":
         load_if_exists=True,
     )
 
-    # 先小规模搜索。正式可以改成 5 或 10
+    # Small search first; use 5 or 10 trials for the real run
     study.optimize(objective, n_trials=5)
 
-    print("\n========== 最优结果 ==========")
+    print("\n========== Best result ==========")
     print("best_params:", study.best_params)
     print("best_score:", study.best_value)
 

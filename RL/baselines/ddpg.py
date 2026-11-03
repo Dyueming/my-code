@@ -19,60 +19,60 @@ def moving_average(a, window_size):
 
 class PendulumEnv:
     def __init__(self):
-        # 齿轮参数
-        self.max_torque = 2.0    # 最大施加的力矩
-        self.min_torque =-2.0    # 最大施加的力矩
-        self.dt = 0.05            # 时间步长
-        self.g = 9.81             # 重力加速度
-        self.length = 1.0         # 杆长
-        self.m = 0.1              # 杆的质量
-        self.action_dim=1         #将连续动作,因为目前动作只有一个。
-        self.theta_threshold_radians = 12 * np.pi / 180  # 角度阈值，约 12 度
-        self.x_threshold = 2.4  # 水平位置阈值
+        # Gear parameters
+        self.max_torque = 2.0  # maximum torque
+        self.min_torque = -2.0  # minimum torque
+        self.dt = 0.05  # time step
+        self.g = 9.81  # gravitational acceleration
+        self.length = 1.0  # pole length
+        self.m = 0.1  # pole mass
+        self.action_dim = 1  # currently a single continuous action
+        self.theta_threshold_radians = 12 * np.pi / 180  # angle threshold, about 12 degrees
+        self.x_threshold = 2.4  # horizontal position threshold
         self.reset()
 
     def reset(self):
-        # 随机初始化杆子的角度和角速度
-        self.theta = np.random.uniform(-np.pi/4, np.pi/4)  # 角度 [-pi, pi]
-        self.theta_dot = np.random.uniform(-0.5, 0.5)  # 角速度
+        # Random initial pole angle and angular velocity
+        self.theta = np.random.uniform(-np.pi/4, np.pi/4)  # pole angle
+        self.theta_dot = np.random.uniform(-0.5, 0.5)  # pole angular velocity
         self.state=np.array([self.theta, self.theta_dot])
         return self.state
 
 
     def step(self, action):
-        # 控制力矩范围， action 应在 [-2, 2] 之间
+        # Torque range: the action should stay within [-2, 2]
         torque = np.clip(action, self.min_torque, self.max_torque)
 
-        # 使用物理公式更新状态
+        # Update the state with the physical equations
         g, l, m = self.g, self.length, self.m
         theta, theta_dot = self.theta, self.theta_dot
 
-        # 运动方程
-        theta_acc = (-3 * g / (2 * l) * np.sin(theta + np.pi) + torque / (m * l ** 2))  # 角加速度
-        theta_dot += theta_acc * self.dt  # 更新角速度
-        theta += theta_dot * self.dt  # 更新角度
+        # Equations of motion
+        theta_acc = (-3 * g / (2 * l) * np.sin(theta + np.pi) + torque / (m * l ** 2))  # angular acceleration
+        theta_dot += theta_acc * self.dt  # update the angular velocity
+        theta += theta_dot * self.dt  # update the angle
 
-        # 防止theta超过范围
+        # Keep theta in range
         theta = (theta + np.pi) % (2 * np.pi) - np.pi
 
-        # 更新状态
+        # Update the state
         self.theta = theta
         self.theta_dot = theta_dot
 
-        # 奖励函数（越接近平衡，奖励越高）
-        reward = - (theta ** 2 + 0.1 * theta_dot ** 2 + 0.001 * torque ** 2)  # 负奖励
+        # Reward function (closer to balance means higher reward)
+        reward = - (theta ** 2 + 0.1 * theta_dot ** 2 + 0.001 * torque ** 2)  # negative reward
 
-        # 返回值应该包括下一个状态、奖励、是否完成、额外信息
+        # Return next state, reward, done flag and extra info
         done = (theta < -self.theta_threshold_radians or
                 theta > self.theta_threshold_radians)
-        return self.state, reward, done, {}  # 返回next_state, reward, done, info
+        return self.state, reward, done, {}  # next_state, reward, done, info
 
     def render(self):
-        # 可选实现
+        # Optional
         pass
 
     def close(self):
-        # 清理资源
+        # Clean up resources
         pass
 
 class ReplayBuffer:
@@ -95,7 +95,7 @@ class PolicyNet(torch.nn.Module):
         super(PolicyNet, self).__init__()
         self.fc1 = torch.nn.Linear(state_dim, hidden_dim)
         self.fc2 = torch.nn.Linear(hidden_dim, action_dim)
-        self.action_bound = action_bound  # action_bound是环境可以接受的动作最大值
+        self.action_bound = action_bound  # largest action the env accepts
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -110,35 +110,35 @@ class QValueNet(torch.nn.Module):
         self.fc_out = torch.nn.Linear(hidden_dim, 1)
 
     def forward(self, x, a):
-        cat = torch.cat([x, a], dim=1) # 拼接状态和动作
+        cat = torch.cat([x, a], dim=1)  # concat state and action
         x = F.relu(self.fc1(cat))
         x = F.relu(self.fc2(x))
         return self.fc_out(x)
 
 
 class DDPG:
-    ''' DDPG算法 '''
+    ''' DDPG algorithm '''
     def __init__(self, state_dim, hidden_dim, action_dim, action_bound, sigma, actor_lr, critic_lr, tau, gamma, device):
         self.actor = PolicyNet(state_dim, hidden_dim, action_dim, action_bound).to(device)
         self.critic = QValueNet(state_dim, hidden_dim, action_dim).to(device)
         self.target_actor = PolicyNet(state_dim, hidden_dim, action_dim, action_bound).to(device)
         self.target_critic = QValueNet(state_dim, hidden_dim, action_dim).to(device)
-        # 初始化目标价值网络并设置和价值网络相同的参数
+        # Initialise the target critic with the critic weights
         self.target_critic.load_state_dict(self.critic.state_dict())
-        # 初始化目标策略网络并设置和策略相同的参数
+        # Initialise the target actor with the actor weights
         self.target_actor.load_state_dict(self.actor.state_dict())
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=critic_lr)
         self.gamma = gamma
-        self.sigma = sigma  # 高斯噪声的标准差,均值直接设为0
-        self.tau = tau  # 目标网络软更新参数
+        self.sigma = sigma  # std of the Gaussian noise (mean fixed at 0)
+        self.tau = tau  # soft update coefficient
         self.action_dim = action_dim
         self.device = device
 
     def take_action(self, state):
         state = torch.tensor([state], dtype=torch.float).to(self.device)
         action = self.actor(state).item()
-        # 给动作添加噪声，增加探索
+        # Add noise to the action for exploration
         action = action + self.sigma * np.random.randn(self.action_dim)
         return action
 
@@ -165,8 +165,8 @@ class DDPG:
         actor_loss.backward()
         self.actor_optimizer.step()
 
-        self.soft_update(self.actor, self.target_actor)  # 软更新策略网络
-        self.soft_update(self.critic, self.target_critic)  # 软更新价值网络
+        self.soft_update(self.actor, self.target_actor)  # soft update the actor
+        self.soft_update(self.critic, self.target_critic)  # soft update the critic
 
 def train_off_policy_agent(env, agent, num_episodes, replay_buffer, minimal_size, batch_size):
     return_list = []
@@ -197,11 +197,11 @@ critic_lr = 3e-3
 num_episodes = 200
 hidden_dim = 64
 gamma = 0.98
-tau = 0.005  # 软更新参数
+tau = 0.005  # soft update coefficient
 buffer_size = 10000
 minimal_size = 1000
 batch_size = 64
-sigma = 0.01  # 高斯噪声标准差
+sigma = 0.01  # Gaussian noise std
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 env_name = 'Pendulum-v0'
@@ -209,10 +209,10 @@ env = PendulumEnv()
 random.seed(0)
 np.random.seed(0)
 state_dim = env.state.shape[0]
-action_dim = env.action_dim    #动作维度
+action_dim = env.action_dim  # action dimension
 torch.manual_seed(0)
 replay_buffer =ReplayBuffer(buffer_size)
-action_bound = max(abs(env.max_torque),abs(env.min_torque)) # 动作最大值
+action_bound = max(abs(env.max_torque), abs(env.min_torque))  # max action
 agent = DDPG(state_dim, hidden_dim, action_dim, action_bound, sigma, actor_lr, critic_lr, tau, gamma, device)
 
 return_list =train_off_policy_agent(env, agent, num_episodes, replay_buffer, minimal_size, batch_size)
